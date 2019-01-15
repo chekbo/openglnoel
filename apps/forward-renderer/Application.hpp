@@ -50,4 +50,5 @@ private:
   glm::mat4 projection;
   glm::mat4 view;
   float f = 0;
+  glmlv::ViewController *viewC;
 };

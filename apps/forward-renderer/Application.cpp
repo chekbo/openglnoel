@@ -21,8 +21,10 @@ int Application::run()
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  
       //Uniform update
+      view = translate(viewC->getViewMatrix(),vec3(2,0,0)) ;
       f+=0.1;
       cubeModel = glm::rotate(glm::mat4(1.f),radians(f),vec3(0,1,1));
+      cubeModel = scale(cubeModel,vec3(1.5,1.5,1.5));
       mat4 mvp =  projection * view * cubeModel ;
       glUniformMatrix4fv(uMVP, 1, GL_FALSE, &mvp[0][0]);
 
@@ -32,7 +34,7 @@ int Application::run()
       mat4 normalM = glm::transpose(glm::inverse(mv));
       glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
 
-      draw(0,cube.vertexBuffer.size());
+      draw(0,cube.indexBuffer.size());
 
       //Draw Sphere
       mvp =  projection * view * sphereModel ;
@@ -43,7 +45,7 @@ int Application::run()
 
       normalM = glm::transpose(glm::inverse(mv));
       glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
-      draw(1,sphere.vertexBuffer.size());
+      draw(1,sphere.indexBuffer.size());
       
 
       // GUI code:
@@ -64,7 +66,7 @@ int Application::run()
       if (!guiHasFocus) {
 	// Put here code to handle user interactions
       }
-
+      viewC->update(ellapsedTime);
       m_GLFWHandle.swapBuffers(); // Swap front and back buffers
     }
 
@@ -96,7 +98,7 @@ Application::Application(int argc, char** argv):
   // Put here initialization code
   glEnable(GL_DEPTH_TEST);
   cube = glmlv::makeCube();
-  sphere = glmlv::makeSphere(10);
+  sphere = glmlv::makeSphere(32);
 
   cout << "Content created" << endl;
   //Init des buffers 
@@ -111,7 +113,8 @@ Application::Application(int argc, char** argv):
   initObject(1,sphere);
   sphereModel = glm::rotate(glm::mat4(1.f),radians(45.f),vec3(0,1,0));
   
-
+  //CAMERA VIEW HANDLE
+  viewC = new glmlv::ViewController( m_GLFWHandle.window(),30);
 }
 
 void Application::initObject(int index,glmlv::SimpleGeometry &obj){
@@ -128,7 +131,7 @@ void Application::initObject(int index,glmlv::SimpleGeometry &obj){
   //IBO
   cout << "IBO Init" << endl;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ibo[index]);
-  glBufferStorage(GL_ELEMENT_ARRAY_BUFFER,obj.vertexBuffer.size()*sizeof(uint32_t),obj.indexBuffer.data(),GL_DYNAMIC_STORAGE_BIT);
+  glBufferStorage(GL_ELEMENT_ARRAY_BUFFER,obj.indexBuffer.size()*sizeof(uint32_t),obj.indexBuffer.data(),GL_DYNAMIC_STORAGE_BIT);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
   cout << "IBO done"  << endl;
   
