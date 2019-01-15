@@ -2,8 +2,7 @@
 
 #include <iostream>
 
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+
 
 int Application::run()
 {
@@ -14,15 +13,37 @@ int Application::run()
   for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
       const auto seconds = glfwGetTime();
-
+      
       // Put here rendering code
       const auto fbSize = m_GLFWHandle.framebufferSize();
       glViewport(0, 0, fbSize.x, fbSize.y);
-      glClearColor(0,0,0,1);
+      glClearColor(1,1,1,1);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+ 
+      //Uniform update
+      f+=0.1;
+      cubeModel = glm::rotate(glm::mat4(1.f),radians(f),vec3(0,1,1));
+      mat4 mvp =  projection * view * cubeModel ;
+      glUniformMatrix4fv(uMVP, 1, GL_FALSE, &mvp[0][0]);
+
+      mat4 mv = view * cubeModel;
+      glUniformMatrix4fv(uMV, 1, GL_FALSE, &mv[0][0]);
+
+      mat4 normalM = glm::transpose(glm::inverse(mv));
+      glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
 
       draw(0,cube.vertexBuffer.size());
-      //draw(1,sphere.vertexBuffer.size());
+
+      //Draw Sphere
+      mvp =  projection * view * sphereModel ;
+      glUniformMatrix4fv(uMVP, 1, GL_FALSE, &mvp[0][0]);
+
+      mv = view * sphereModel;
+      glUniformMatrix4fv(uMV, 1, GL_FALSE, &mv[0][0]);
+
+      normalM = glm::transpose(glm::inverse(mv));
+      glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
+      draw(1,sphere.vertexBuffer.size());
       
 
       // GUI code:
@@ -67,19 +88,29 @@ Application::Application(int argc, char** argv):
   uMVP = shader.getUniformLocation("uModelViewProjMatrix");
   uMV = shader.getUniformLocation("uModelViewMatrix");
   uNormal = shader.getUniformLocation("uNormalMatrix");
+
+  //Init matrices
+  projection = glm::perspective(glm::radians(70.f),(float)m_nWindowWidth/m_nWindowHeight,0.1f,100.f);
+  view = lookAt(vec3(5,0,0),vec3(0,0,0),vec3(0,1,0));
+  //view = glm::ortho(-1,1,1,1);
   // Put here initialization code
   glEnable(GL_DEPTH_TEST);
   cube = glmlv::makeCube();
   sphere = glmlv::makeSphere(10);
 
   cout << "Content created" << endl;
-  
+  //Init des buffers 
   glGenBuffers(2,vbo);
   glGenBuffers(2,ibo);
   glGenVertexArrays(2,vao);
-  
+
+  //Init des objets
   initObject(0,cube);
+  cubeModel = glm::rotate(glm::mat4(1.f),radians(45.f),vec3(0,1,0));
+  
   initObject(1,sphere);
+  sphereModel = glm::rotate(glm::mat4(1.f),radians(45.f),vec3(0,1,0));
+  
 
 }
 
@@ -97,7 +128,7 @@ void Application::initObject(int index,glmlv::SimpleGeometry &obj){
   //IBO
   cout << "IBO Init" << endl;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ibo[index]);
-  glBufferStorage(GL_ELEMENT_ARRAY_BUFFER,obj.indexBuffer.size()*sizeof(uint32_t),obj.indexBuffer.data(),GL_DYNAMIC_STORAGE_BIT);
+  glBufferStorage(GL_ELEMENT_ARRAY_BUFFER,obj.vertexBuffer.size()*sizeof(uint32_t),obj.indexBuffer.data(),GL_DYNAMIC_STORAGE_BIT);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
   cout << "IBO done"  << endl;
   
@@ -109,7 +140,7 @@ void Application::initObject(int index,glmlv::SimpleGeometry &obj){
   glBindVertexBuffer(0,vbo[index],0,sizeof(glmlv::Vertex3f3f2f));
   
   glEnableVertexAttribArray(VERTEX_ATTR_POSITION);
-  glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, offsetof(glmlv::Vertex3f3f2f, position));
+  glVertexAttribFormat(VERTEX_ATTR_POSITION, 3, GL_FLOAT, GL_FALSE, offsetof(glmlv::Vertex3f3f2f, position));
   glVertexAttribBinding(VERTEX_ATTR_POSITION, 0);
   
   glEnableVertexAttribArray(VERTEX_ATTR_NORMAL);

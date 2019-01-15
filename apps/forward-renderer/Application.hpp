@@ -4,9 +4,14 @@
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/ViewController.hpp>
 #include <glmlv/simple_geometry.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
 using namespace std;
+using namespace glm;
+
 const GLint VERTEX_ATTR_POSITION = 0;
 const GLint VERTEX_ATTR_NORMAL = 1;
 const GLint VERTEX_ATTR_TEXTURE = 2;
@@ -33,13 +38,16 @@ private:
   void draw(int index,GLsizei size);
   
   glmlv::SimpleGeometry cube;
-  //  glmlv::mat4 cubeModel;
+  glm::mat4 cubeModel;
   glmlv::SimpleGeometry sphere;
-  //  glmlv::mat4 sphereModel;
+  glm::mat4 sphereModel;
   GLuint vbo[2];
   GLuint vao[2];
   GLuint ibo[2];
   //Shader part
   glmlv::GLProgram shader;
   GLint uMVP, uMV, uNormal;
+  glm::mat4 projection;
+  glm::mat4 view;
+  float f = 0;
 };
