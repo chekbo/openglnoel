@@ -13,6 +13,24 @@ int Application::run()
   // Loop until the user closes the window
   for (auto iterationCount = 0u; !m_GLFWHandle.shouldClose(); ++iterationCount)
     {
+      
+      glBindTexture(GL_TEXTURE_2D, texture[0]);
+      glTexSubImage2D(GL_TEXTURE_2D,
+		      0,0,0,
+		      b_textures[0].width(),
+		      b_textures[0].height(),
+		      GL_RGBA,GL_UNSIGNED_BYTE,images[im].data());
+      glBindTexture(GL_TEXTURE_2D, 0);
+      glBindTexture(GL_TEXTURE_2D, texture[1]);
+      glTexSubImage2D(GL_TEXTURE_2D,
+		      0,0,0,
+		      b_textures[0].width(),
+		      b_textures[0].height(),
+		      GL_RGBA,GL_UNSIGNED_BYTE,images[im].data());
+      glBindTexture(GL_TEXTURE_2D, 0);
+      ++im;
+      if(im == images.size())
+	im = 0;
       const auto seconds = glfwGetTime();
       //LIght init
       glUniform3fv(uDirectionalLightDir, 1, value_ptr(dirLightPosition));
@@ -40,9 +58,12 @@ int Application::run()
       glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
 
       //Cube color
+      /* glUniform1i(uKdSampler, 0);
+      glBindSampler(0, sampler[0]);
+      glBindTexture(GL_TEXTURE_2D, texture[0]);
       glUniform3fv(uKd, 1, value_ptr(vec3(cubeColor)));
       draw(0,cube.indexBuffer.size());
-
+      glBindTexture(GL_TEXTURE_2D, 0);*/
       //Draw Sphere
       mvp =  projection * view * sphereModel ;
       glUniformMatrix4fv(uMVP, 1, GL_FALSE, &mvp[0][0]);
@@ -53,8 +74,12 @@ int Application::run()
       normalM = glm::transpose(glm::inverse(mv));
       glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
 
+      glUniform1i(uKdSampler, 0);
+      glBindSampler(0, sampler[1]);
+      glBindTexture(GL_TEXTURE_2D, texture[1]);
       glUniform3fv(uKd, 1,  value_ptr(vec3(sphereColor)));
       draw(1,sphere.indexBuffer.size());
+      glBindTexture(GL_TEXTURE_2D, 0);
       
 
       // GUI code:
@@ -91,6 +116,10 @@ int Application::run()
       if (!guiHasFocus) {
 	// Put here code to handle user interactions
       }
+      while(ellapsedTime < (float)1/60){
+	ellapsedTime = glfwGetTime() - seconds;
+
+      }
       viewC->update(ellapsedTime);
       m_GLFWHandle.swapBuffers(); // Swap front and back buffers
     }
@@ -122,7 +151,7 @@ Application::Application(int argc, char** argv):
   uPointLightPosition = shader.getUniformLocation("uPointLightPosition");
   uPointLightIntensity = shader.getUniformLocation("uPointLightIntensity");
   uKd = shader.getUniformLocation("uKd");
-
+  uKdSampler  = shader.getUniformLocation("uKdSampler");
 
   //Init matrices
   projection = glm::perspective(glm::radians(70.f),(float)m_nWindowWidth/m_nWindowHeight,0.1f,100.f);
@@ -138,17 +167,27 @@ Application::Application(int argc, char** argv):
   glGenBuffers(2,vbo);
   glGenBuffers(2,ibo);
   glGenVertexArrays(2,vao);
-  glCreateTextures(GL_TEXTURE_2D,2,texture);
+  glActiveTexture(GL_TEXTURE0);
+  glGenTextures(2,texture);
+  glGenSamplers(2,sampler);
   //Init des objets
-  b_textures[0] = glmlv::readImage({m_AssetsRootPath / m_AppName / "cube.png"});
+  b_textures[0] = glmlv::readImage({m_AssetsRootPath / m_AppName / "fire_0000.png"});
   initObject(0,cube);
   cubeModel = glm::rotate(glm::mat4(1.f),radians(45.f),vec3(0,1,0));
   cubeColor = vec4(0,1,0,1);
 
-  b_textures[1] = glmlv::readImage({m_AssetsRootPath / m_AppName / "sphere.png"});
+  b_textures[1] = glmlv::readImage({m_AssetsRootPath / m_AppName / "fire_0000.png"});
   initObject(1,sphere);
   sphereModel = glm::rotate(glm::mat4(1.f),radians(45.f),vec3(0,1,0));
   sphereColor = vec4(1,0,0,1);
+  //LOAD IMAGES
+  for(int i = 0; i < 46; ++i){
+    char buffer[9];
+    std::snprintf(buffer, sizeof(buffer), "%04d", i);
+    string s = string("fire_") + string(buffer) + string(".png");
+    images.push_back(glmlv::readImage({m_AssetsRootPath / m_AppName  /s}));
+  }
+
   //CAMERA VIEW HANDLE
   viewC = new glmlv::ViewController( m_GLFWHandle.window(),30);
 }
@@ -170,7 +209,25 @@ void Application::initObject(int index,glmlv::SimpleGeometry &obj){
   glBufferStorage(GL_ELEMENT_ARRAY_BUFFER,obj.indexBuffer.size()*sizeof(uint32_t),obj.indexBuffer.data(),GL_DYNAMIC_STORAGE_BIT);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0);
   cout << "IBO done"  << endl;
-  //texture 
+  //texture
+  glBindTexture(GL_TEXTURE_2D, texture[index]) ;
+  glTexStorage2D( GL_TEXTURE_2D,
+        1,
+  	 GL_RGBA8,
+  	b_textures[index].width(),
+  	b_textures[index].height());
+  glTexSubImage2D(GL_TEXTURE_2D,
+		      0,0,0,
+		      b_textures[index].width(),
+		      b_textures[index].height(),
+		      GL_RGBA,GL_UNSIGNED_BYTE,b_textures[index].data());
+  glSamplerParameteri(sampler[index],
+ 	GL_TEXTURE_MIN_FILTER,
+ 	GL_LINEAR);
+  glSamplerParameteri(sampler[index],
+ 	GL_TEXTURE_MAG_FILTER,
+ 	GL_LINEAR);
+  
   //VAO
   cout << "VAO init" << endl;
 

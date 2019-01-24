@@ -9,6 +9,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <vector>
 
 using namespace std;
 using namespace glm;
@@ -52,11 +53,13 @@ private:
   GLuint vao[2];
   GLuint ibo[2];
   GLuint texture[2];
+  GLuint sampler[2];
   glmlv::Image2DRGBA b_textures[2];
   //Shader part
   glmlv::GLProgram shader;
   GLint uMVP, uMV, uNormal;
   GLint uDirectionalLightDir,uDirectionalLightIntensity, uPointLightPosition, uPointLightIntensity, uKd;
+  GLint uKdSampler;
   vec3 dirLightPosition = vec3(0,0,0);
   vec3 pointLightPosition = vec3(0,0,0);
   glm::mat4 projection;
@@ -65,7 +68,11 @@ private:
   glmlv::ViewController *viewC;
 
   //GUI
-  float g_cubeColor[4] = {0,0,0,1},g_sphereColor[4]= {0,0,0,1};
-  float g_dirLightPosition[3] = {0,0,0},g_pointLightPosition[3]= {0,0,0};
-  float g_dirLightIntensity = 0,g_pointLightIntensity = 0;
+  float g_cubeColor[4] = {1,1,1,1},g_sphereColor[4]= {1,1,1,1};
+  float g_dirLightPosition[3] = {1,1,1},g_pointLightPosition[3]= {1,1,1};
+  float g_dirLightIntensity = 1,g_pointLightIntensity = 1;
+
+
+  int im = 0;
+  std::vector<glmlv::Image2DRGBA> images;
 };
