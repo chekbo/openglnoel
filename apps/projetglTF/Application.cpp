@@ -137,87 +137,128 @@ Application::Application(int argc, char** argv):
 }
 
 void Application::initObject(Model &model){
-  for (size_t i = 0; i < model.bufferViews.size(); i++) {
-    /**Setup Part*/
+  GLuint vao;
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+
+  const tinygltf::Scene &scene = model.scenes[model.defaultScene];
+  for (size_t i = 0; i < scene.nodes.size(); ++i) {
+    bindModelNodes(vbos, model, model.nodes[scene.nodes[i]]);
+  }
+ 
+  glBindVertexArray(0);
+}
+
+// bind models
+void Application::bindModelNodes(std::map<int, GLuint> vbos, tinygltf::Model &model,
+                    tinygltf::Node &node) {
+  bindMesh(vbos, model, model.meshes[node.mesh]);
+  for (size_t i = 0; i < node.children.size(); i++) {
+    bindModelNodes(vbos, model, model.nodes[node.children[i]]);
+         
+  }
+}
+
+
+std::map<int, GLuint> Application::bindMesh(std::map<int, GLuint> vbos,
+                               tinygltf::Model &model, tinygltf::Mesh &mesh) {
+  for (size_t i = 0; i < model.bufferViews.size(); ++i) {
     const tinygltf::BufferView &bufferView = model.bufferViews[i];
-    if (bufferView.target == 0) {
+    if (bufferView.target == 0) {  // TODO impl drawarrays
       std::cout << "WARN: bufferView.target is zero" << std::endl;
       continue;  // Unsupported bufferView.
+                 /*
+                   From spec2.0 readme:
+                   https://github.com/KhronosGroup/glTF/tree/master/specification/2.0
+                            ... drawArrays function should be used with a count equal to
+                   the count            property of any of the accessors referenced by the
+                   attributes            property            (they are all equal for a given
+                   primitive).
+                 */
     }
 
+    tinygltf::Buffer buffer = model.buffers[bufferView.buffer];
+    std::cout << "bufferview.target " << bufferView.target << std::endl;
 
-    /**Buffer generation Part*/
-    const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
-    /**VBO*/
     GLuint vbo;
-    glGenBuffers(1,&vbo);
-    vbos.push_back(vbo);
-    glBindBuffer(bufferView.target,vbo);
-    //filling buffer sparse accessor is not implemented in this version
-    glBufferData(bufferView.target,bufferView.byteLength,&buffer.data.at(0) + bufferView.byteOffset,GL_STATIC_DRAW);
-    glBindBuffer(bufferView.target, 0);
+    glGenBuffers(1, &vbo);
+    vbos[i] = vbo;
+    glBindBuffer(bufferView.target, vbo);
+
+    std::cout << "buffer.data.size = " << buffer.data.size()
+              << ", bufferview.byteOffset = " << bufferView.byteOffset
+              << std::endl;
+
+    glBufferData(bufferView.target, bufferView.byteLength,
+                 &buffer.data.at(0) + bufferView.byteOffset, GL_STATIC_DRAW);
   }
-  /**VAO*/
-  cout << "VAO Init" << endl;
-  for(int i = 0; i < vbos.size(); ++i){
-    GLuint vao;
-    glGenVertexArrays(1,&vao);
-    vaos.push_back(vao);
-  }
-  for(auto it = model.meshes.begin(); it != model.meshes.end(); it++){
-    Mesh mesh = *it;
-    for (size_t i = 0; i < mesh.primitives.size(); i++) {
-      const tinygltf::Primitive &primitive = mesh.primitives[i];
 
-      if (primitive.indices < 0) return;
+  for (size_t i = 0; i < mesh.primitives.size(); ++i) {
+    tinygltf::Primitive primitive = mesh.primitives[i];
+    tinygltf::Accessor indexAccessor = model.accessors[primitive.indices];
+    for (auto &attrib : primitive.attributes) {
+      tinygltf::Accessor accessor = model.accessors[attrib.second];
+      int byteStride =
+          accessor.ByteStride(model.bufferViews[accessor.bufferView]);
+      glBindBuffer(GL_ARRAY_BUFFER, vbos[accessor.bufferView]);
 
-      // Assume TEXTURE_2D target for the texture object.
-      // glBindTexture(GL_TEXTURE_2D, gMeshState[mesh.name].diffuseTex[i]);
-
-      std::map<std::string, int>::const_iterator it(primitive.attributes.begin());
-      std::map<std::string, int>::const_iterator itEnd(
-						       primitive.attributes.end());
-      for (; it != itEnd; it++) {	
-	assert(it->second >= 0);
-	const tinygltf::Accessor &accessor = model.accessors[it->second];
-	glBindVertexArray(vaos[accessor.bufferView]);
-	glBindBuffer(GL_ARRAY_BUFFER, vbos[accessor.bufferView]);
-	int size = 1;
-	if (accessor.type == TINYGLTF_TYPE_SCALAR) {
-	  size = 1;
-	} else if (accessor.type == TINYGLTF_TYPE_VEC2) {
-	  size = 2;
-	} else if (accessor.type == TINYGLTF_TYPE_VEC3) {
-	  size = 3;
-	} else if (accessor.type == TINYGLTF_TYPE_VEC4) {
-	  size = 4;
-	} else {
-	  assert(0);
-	}
-	// it->first would be "POSITION", "NORMAL", "TEXCOORD_0", ...
-	if ((it->first.compare("POSITION") == 0) ||
-	    (it->first.compare("NORMAL") == 0) ||
-	    (it->first.compare("TEXCOORD_0") == 0)) {
-	  // Compute byteStride from Accessor + BufferView combination.
-	  int byteStride =
-	    accessor.ByteStride(model.bufferViews[accessor.bufferView]);
-	  assert(byteStride != -1);
-	  int attrib = (it->first.compare("POSITION") == 0 ? VERTEX_ATTR_POSITION : (it->first.compare("NORMAL") == 0 ? VERTEX_ATTR_NORMAL : VERTEX_ATTR_TEXTURE));
-	 
-	  glVertexAttribPointer(attrib, size,
-				accessor.componentType,
-				accessor.normalized ? GL_TRUE : GL_FALSE,
-				byteStride, BUFFER_OFFSET(accessor.byteOffset));
-	  glEnableVertexAttribArray(attrib);
-	  
-	  glBindBuffer(GL_ARRAY_BUFFER, 0);
-	  glBindVertexArray(0);
-	}
+      int size = 1;
+      if (accessor.type != TINYGLTF_TYPE_SCALAR) {
+        size = accessor.type;
       }
-			  
+      
+      int vaa = -1;
+      if (attrib.first.compare("POSITION") == 0) vaa = 0;
+      if (attrib.first.compare("NORMAL") == 0) vaa = 1;
+      if (attrib.first.compare("TEXCOORD_0") == 0) vaa = 2;
+      if (vaa > -1) {
+        glEnableVertexAttribArray(vaa);
+        glVertexAttribPointer(vaa, size, accessor.componentType,
+                              accessor.normalized ? GL_TRUE : GL_FALSE,
+                              byteStride, BUFFER_OFFSET(accessor.byteOffset));
+      } else
+        std::cout << "vaa missing: " << attrib.first << std::endl;
     }
+
+    /*GLuint texid;
+    glGenTextures(1, &texid);
+
+    tinygltf::Texture &tex = model.textures[0];
+    tinygltf::Image &image = model.images[tex.source];
+
+    glBindTexture(GL_TEXTURE_2D, texid);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    GLenum format = GL_RGBA;
+
+    if (image.component == 1) {
+      format = GL_RED;
+    } else if (image.component == 2) {
+      format = GL_RG;
+    } else if (image.component == 3) {
+      format = GL_RGB;
+    } else {
+      // ???
+    }
+
+    GLenum type = GL_UNSIGNED_BYTE;
+    if (image.bits == 8) {
+      // ok
+    } else if (image.bits == 16) {
+      type = GL_UNSIGNED_SHORT;
+    } else {
+      // ???
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0,
+    format, type, &image.image.at(0));*/
   }
-  
+    
+  return vbos;
 }
 
 void Application::draw(Model &model){
@@ -268,25 +309,10 @@ void Application::drawMesh(Model &model, Mesh &mesh){
       glBindVertexArray(vaos[indexAccessor.bufferView]);
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
 		   vbos[indexAccessor.bufferView]);
-      int mode = -1;
-      if (primitive.mode == TINYGLTF_MODE_TRIANGLES) {
-	mode = GL_TRIANGLES;
-      } else if (primitive.mode == TINYGLTF_MODE_TRIANGLE_STRIP) {
-	mode = GL_TRIANGLE_STRIP;
-      } else if (primitive.mode == TINYGLTF_MODE_TRIANGLE_FAN) {
-	mode = GL_TRIANGLE_FAN;
-      } else if (primitive.mode == TINYGLTF_MODE_POINTS) {
-	mode = GL_POINTS;
-      } else if (primitive.mode == TINYGLTF_MODE_LINE) {
-	mode = GL_LINES;
-      } else if (primitive.mode == TINYGLTF_MODE_LINE_LOOP) {
-	mode = GL_LINE_LOOP;
-      } else {
-	assert(0);
-      }
+
       /**Drawing part*/
       view = translate(viewC->getViewMatrix(),vec3(2,0,0)) ;
-      cubeModel = glm::rotate(glm::mat4(1.f),radians(f),vec3(0,1,1));
+      cubeModel = glm::rotate(glm::mat4(1.f),0.0f,vec3(0,0,0));
       mat4 mvp =  projection * view * cubeModel ;
       glUniformMatrix4fv(uMVP, 1, GL_FALSE, &mvp[0][0]);
 
@@ -296,7 +322,7 @@ void Application::drawMesh(Model &model, Mesh &mesh){
       mat4 normalM = glm::transpose(glm::inverse(mv));
       glUniformMatrix4fv(uNormal, 1, GL_FALSE, &normalM[0][0]);
       
-      glDrawElements(mode, indexAccessor.count, indexAccessor.componentType,
+      glDrawElements(primitive.mode, indexAccessor.count, indexAccessor.componentType,
 	BUFFER_OFFSET(indexAccessor.byteOffset));
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       glBindVertexArray(0);

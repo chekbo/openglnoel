@@ -50,7 +50,8 @@ private:
   void drawNode(Model &model, Node &node);
   void drawMesh(Model &model, Mesh &mesh);
   void initObject(Model &obj);
-  
+  void bindModelNodes(std::map<int, GLuint> vbos, tinygltf::Model &model, tinygltf::Node &node);
+  std::map<int, GLuint>  bindMesh(std::map<int, GLuint> vbos,tinygltf::Model &model, tinygltf::Mesh &mesh);
   glmlv::SimpleGeometry cube;
   glm::mat4 cubeModel;
   glm::vec4 cubeColor;
@@ -61,7 +62,7 @@ private:
   glm::vec4 sphereColor;
 
   //GLBuffers
-  vector<GLuint> vbos;
+  std::map<int, GLuint> vbos;
   vector<GLuint> vaos;
   vector<GLuint> ibos;
   vector<GLuint> textures;
@@ -90,7 +91,7 @@ private:
   float g_dirLightPosition[3] = {1,1,1},g_pointLightPosition[3]= {1,1,1};
   float g_dirLightIntensity = 1,g_pointLightIntensity = 1;
 
-
+  
   int im = 0;
   std::vector<glmlv::Image2DRGBA> images;
 };
